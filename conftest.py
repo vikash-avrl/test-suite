@@ -52,17 +52,23 @@ def context(playwright: Playwright):
     # Create a temporary directory for user data
     user_data_dir = tempfile.mkdtemp()
     
+    # Detect if running in CI environment
+    is_ci = os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true"
+    
     print(f"\n[DEBUG] Launching browser with extension from: {EXTENSION_PATH}")
+    print(f"[DEBUG] Running in CI mode: {is_ci}")
     
     # Launch persistent context with extension
     context = playwright.chromium.launch_persistent_context(
         user_data_dir=user_data_dir,
-        headless=False,
+        headless=is_ci,  # Headless in CI, headed locally
         args=[
             f"--disable-extensions-except={EXTENSION_PATH}",
             f"--load-extension={EXTENSION_PATH}",
             "--no-sandbox",
             "--disable-setuid-sandbox",
+            "--disable-gpu",  # Helps with headless mode
+            "--disable-dev-shm-usage",  # Helps with CI stability
         ],
         viewport={"width": 1280, "height": 720},
         locale="en-US",
