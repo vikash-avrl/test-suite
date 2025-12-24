@@ -2,9 +2,7 @@ name: Chrome Extension Tests
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
+    branches: [ master ]
   workflow_dispatch:  # Allow manual triggers
 
 jobs:
