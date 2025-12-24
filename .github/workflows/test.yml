@@ -98,7 +98,7 @@ jobs:
         run: |
           echo "Running tests with intercepted template"
           echo "Template file: $TEMPLATE_FILE_PATH"
-          pytest tests/ -v
+          pytest tests/ -v -s
         continue-on-error: false
       
       # List test results directory contents (for debugging)
