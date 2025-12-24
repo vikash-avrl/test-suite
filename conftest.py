@@ -111,7 +111,7 @@ def page(context: BrowserContext):
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """
-    Hook to capture screenshots on test failure
+    Hook to capture screenshots on test failure (saved to test-results/screenshots/)
     """
     # Execute all other hooks to obtain the report object
     outcome = yield
@@ -133,30 +133,8 @@ def pytest_runtest_makereport(item, call):
                 # Take screenshot
                 page.screenshot(path=str(screenshot_path))
                 print(f"\n[SCREENSHOT] Saved to: {screenshot_path}")
-                
-                # Attach screenshot to HTML report
-                if hasattr(report, 'extra'):
-                    # Read screenshot and embed in HTML report
-                    with open(screenshot_path, 'rb') as f:
-                        screenshot_data = f.read()
-                    
-                    import base64
-                    encoded = base64.b64encode(screenshot_data).decode('utf-8')
-                    
-                    html = f'<div><img src="data:image/png;base64,{encoded}" ' \
-                           f'alt="screenshot" style="width:800px;height:auto;" /></div>'
-                    
-                    report.extra = getattr(report, 'extra', [])
-                    report.extra.append(pytest_html.extras.html(html))
         except Exception as e:
             print(f"[WARNING] Could not capture screenshot: {e}")
-
-
-# Add pytest-html import at the top if not present
-try:
-    import pytest_html
-except ImportError:
-    pass  # pytest-html not installed
 
 
 @pytest.fixture(scope="function")

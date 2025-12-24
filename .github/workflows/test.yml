@@ -57,7 +57,7 @@ jobs:
         env:
           EXTENSION_PATH: ${{ github.workspace }}/chrome-extension
         run: |
-          pytest tests/ -v --html=test-results/report.html --self-contained-html
+          pytest tests/ -v
         continue-on-error: false
       
       # === OPTION 2: Checkout from different repository ===
@@ -87,10 +87,7 @@ jobs:
         with:
           name: playwright-test-results
           path: |
-            test-results/report.html
             test-results/screenshots/
-            test-results/*.xml
-            test-results/*.json
           retention-days: 30
       
       - name: Upload HTML report separately for easy viewing
