@@ -124,6 +124,56 @@ def page(context: BrowserContext):
     Get or create a page for each test
     Persistent context usually starts with a page already open
     """
+    # Setup API route interception at CONTEXT level (works for all pages including iframes)
+    template_url = os.getenv(
+        "TEMPLATE_FILE_PATH",
+        "file:///C:/Users/vikas/OneDrive/Desktop/avrlglassgit/templates/avrl_glass_display_pane/template0.html"
+    )
+    
+    # Check if running in CI
+    is_ci = os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true"
+    
+    if not is_ci:
+        # Only intercept locally, not in CI
+        print(f"[DEBUG] Setting up API interception for glass_template (context level)")
+        print(f"[DEBUG] Will serve content from: {template_url}")
+        
+        def handle_route(route):
+            try:
+                print(f"[INTERCEPT] Caught request: {route.request.url}")
+                
+                # Read the local file content
+                file_path = template_url.replace("file:///", "").replace("file://", "")
+                
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                print(f"[INTERCEPT] Serving local file ({len(content)} bytes)")
+                
+                # Return 200 with actual content (not redirect!)
+                route.fulfill(
+                    status=200,
+                    content_type='text/html; charset=utf-8',
+                    body=content,
+                    headers={
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                        'Access-Control-Allow-Headers': '*'
+                    }
+                )
+            except Exception as e:
+                print(f"[ERROR] Interception failed: {e}")
+                import traceback
+                traceback.print_exc()
+                route.continue_()
+        
+        # Intercept at CONTEXT level (catches all frames/iframes)
+        context.route("https://glass.1avrl.com/glass_template", handle_route)
+        context.route("https://glass.1avrl.com/glass_template*", handle_route)
+        print(f"[DEBUG] Route interception activated on context")
+    else:
+        print(f"[DEBUG] Running in CI - no API interception")
+    
     # Use existing page if available, otherwise create new one
     if context.pages:
         page = context.pages[0]
@@ -212,6 +262,36 @@ def pytest_configure(config):
             f"Chrome extension not found at {EXTENSION_PATH}. "
             "Please ensure the chrome-extension directory exists."
         )
+
+
+
+
+
+# Global flag to track if any test has failed
+_test_failed = False
+
+
+def pytest_runtest_makereport(item, call):
+    """
+    Hook to track test failures and mark remaining tests
+    """
+    global _test_failed
+    
+    if call.when == "call":
+        if call.excinfo is not None:
+            # A test has failed
+            _test_failed = True
+
+
+def pytest_runtest_setup(item):
+    """
+    Hook called before each test setup
+    Skip remaining tests if a previous test failed
+    """
+    global _test_failed
+    
+    if _test_failed:
+        pytest.skip(f"Skipping due to previous test failure (fail-fast mode)")
 
 
 def pytest_collection_modifyitems(config, items):
