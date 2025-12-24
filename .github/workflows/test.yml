@@ -76,6 +76,30 @@ jobs:
           pytest tests/ -v
         continue-on-error: false
       
+      # List test results directory contents (for debugging)
+      - name: List test results
+        if: always()
+        run: |
+          echo "=== Test Results Directory ==="
+          if [ -d "test-results" ]; then
+            echo "✓ test-results exists"
+            ls -lahR test-results/
+          else
+            echo "✗ test-results directory not found"
+          fi
+      
+      # Upload screenshots and test artifacts (always run, even on failure)
+      - name: Upload test screenshots and artifacts
+        if: always()  # Always upload, even if tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: |
+            test-results/screenshots/
+            test-results/traces/
+          retention-days: 30
+          if-no-files-found: ignore
+      
       # === OPTION 2: Checkout from different repository ===
       # - name: Checkout Chrome Extension
       #   uses: actions/checkout@v4

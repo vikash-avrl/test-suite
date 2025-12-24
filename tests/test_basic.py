@@ -10,7 +10,7 @@ import os
 def send_test_command(page: Page, action: str, data: dict = None):
     """
     Send a command to the extension via DOM event bridge
-    This works in both headed and headless !
+    This works in both headed and headless modes!
     """
     result = page.evaluate("""
         ({ action, data }) => {
@@ -68,11 +68,22 @@ def test_extension_is_installed(page: Page, context):
     else:
         print("[WARNING] No extension pages found (normal for some extensions)")
     
+    # Capture ALL console messages
+    console_messages = []
+    def handle_console(msg):
+        console_messages.append(f"[CONSOLE {msg.type}] {msg.text}")
+        print(f"[CONSOLE {msg.type}] {msg.text}")
+    
+    page.on("console", handle_console)
+    
     # Method 2: Navigate to a page and check if extension injected the test bridge
     test_url = "https://storage.googleapis.com/avrlgeneration_static_assets_staging/html_template/rxo_mock_template.html"
     page.goto(test_url)
     page.wait_for_load_state("networkidle")
     print(f"[OK] Test page loaded: {page.url}")
+    
+    print(f"\n[DEBUG] Console messages so far: {len(console_messages)}")
+    print(f"\n[DEBUG] Console messages so far: {len(console_messages)}")
     
     # IMPORTANT: Wait longer for extension to inject (especially in CI/headless)
     print("[DEBUG] Waiting for extension to inject...")
@@ -83,6 +94,9 @@ def test_extension_is_installed(page: Page, context):
     
     print(f"[DEBUG] Environment: {'CI (headless)' if is_ci else 'Local'}")
     print(f"[DEBUG] Waiting {wait_time} seconds for extension...")
+    print(f"\n{'='*60}")
+    print(f"WATCHING CONSOLE MESSAGES (looking for bridge):")
+    print(f"{'='*60}")
     
     # Wait with retry logic
     bridge_found = False
@@ -97,14 +111,30 @@ def test_extension_is_installed(page: Page, context):
         """)
         
         if bridge_exists:
-            print(f"[OK] Test bridge found after {attempt + 1} seconds!")
+            print(f"\n[OK] Test bridge found after {attempt + 1} seconds!")
             bridge_found = True
             break
         
         if attempt < wait_time - 1:
             print(f"[WAIT] Attempt {attempt + 1}/{wait_time}... bridge not ready yet")
     
-    print(f"[INFO] Test bridge exists: {bridge_found}")
+    print(f"{'='*60}")
+    print(f"TOTAL CONSOLE MESSAGES: {len(console_messages)}")
+    print(f"{'='*60}")
+    
+    # Print all console messages at the end for review
+    if console_messages:
+        print(f"\n[INFO] All console messages:")
+        for msg in console_messages:
+            print(f"  {msg}")
+    else:
+        print(f"\n[WARNING] NO console messages captured!")
+        print(f"[INFO] This could mean:")
+        print(f"  1. Extension content script not running")
+        print(f"  2. Console logging is disabled")
+        print(f"  3. Content script has errors before console.log")
+    
+    print(f"\n[INFO] Test bridge exists: {bridge_found}")
     
     if bridge_found:
         print(f"[OK] Test bridge is ready!")
@@ -124,30 +154,25 @@ def test_extension_is_installed(page: Page, context):
         print(f"  2. Test bridge code might be missing from content.js")
         print(f"  3. Content script might have errors preventing injection")
         
+        # Check for specific bridge-related messages
+        bridge_messages = [msg for msg in console_messages if 'Bridge' in msg or 'bridge' in msg or 'AVRL' in msg]
+        if bridge_messages:
+            print(f"\n[INFO] Bridge-related console messages found:")
+            for msg in bridge_messages:
+                print(f"  {msg}")
+        else:
+            print(f"\n[WARNING] No bridge-related console messages found!")
+            print(f"[INFO] Extension content script is likely NOT running")
+        
         # Take screenshot for debugging
         page.screenshot(path="test-results/screenshots/bridge_not_found.png")
         print(f"[SCREENSHOT] Saved debug screenshot")
-        
-        # Check console for errors
-        console_messages = []
-        page.on("console", lambda msg: console_messages.append(msg.text))
-        page.reload()
-        page.wait_for_load_state("networkidle")
-        time.sleep(2)
-        
-        errors = [msg for msg in console_messages if 'error' in msg.lower()]
-        if errors:
-            print(f"[INFO] Console errors found:")
-            for err in errors[:5]:
-                print(f"  - {err}")
         
         # Fail the test if bridge not found
         pytest.fail("Test bridge not available - extension not properly loaded")
     
     # Method 3: Check for extension console messages
-    console_messages = []
-    page.on("console", lambda msg: console_messages.append(msg.text))
-    
+    print(f"\n[DEBUG] Reloading page to capture any additional console messages...")
     page.reload()
     page.wait_for_load_state("networkidle")
     time.sleep(2)
