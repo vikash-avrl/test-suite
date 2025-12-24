@@ -143,7 +143,18 @@ def page(context: BrowserContext):
             print(f"[INTERCEPT] Caught request: {route.request.url}")
             
             # Read the local file content
-            file_path = template_url.replace("file:///", "").replace("file://", "")
+            # Handle file:// URL conversion properly for both Windows and Linux
+            file_path = template_url
+            if file_path.startswith("file:///"):
+                # Remove file:/// and on Linux/Mac, add back the leading /
+                file_path = file_path.replace("file:///", "")
+                if not file_path.startswith("C:") and not file_path.startswith("D:"):
+                    # Linux/Mac path - needs leading /
+                    file_path = "/" + file_path
+            elif file_path.startswith("file://"):
+                file_path = file_path.replace("file://", "")
+            
+            print(f"[INTERCEPT] Reading file from: {file_path}")
             
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
