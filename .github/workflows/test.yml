@@ -2,7 +2,7 @@ name: Chrome Extension Tests
 
 on:
   push:
-    branches: [ master ]
+    branches: ["master"]
   workflow_dispatch:  # Allow manual triggers
 
 jobs:
@@ -29,6 +29,13 @@ jobs:
         run: |
           playwright install chromium
           playwright install-deps chromium
+      
+      # Create test results directories before running tests
+      - name: Create test results directories
+        run: |
+          mkdir -p test-results/screenshots
+          mkdir -p test-results/traces
+          echo "Test results directories created"
       
       # IMPORTANT: This is where you specify your Chrome extension
       

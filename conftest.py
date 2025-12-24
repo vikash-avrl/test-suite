@@ -185,17 +185,13 @@ def pytest_configure(config):
     """
     Pytest configuration hook
     """
-    # Create test-results directory and subdirectories if they don't exist
-    test_results_dir = Path("test-results")
-    test_results_dir.mkdir(exist_ok=True)
+    import os
     
-    screenshots_dir = test_results_dir / "screenshots"
-    screenshots_dir.mkdir(exist_ok=True)
+    # Create test-results directory and subdirectories using os.makedirs for better compatibility
+    os.makedirs("test-results/screenshots", exist_ok=True)
+    os.makedirs("test-results/traces", exist_ok=True)
     
-    traces_dir = test_results_dir / "traces"
-    traces_dir.mkdir(exist_ok=True)
-    
-    print(f"[DEBUG] Test results will be saved to: {test_results_dir.absolute()}")
+    print(f"[DEBUG] Test results directory created at: {Path('test-results').absolute()}")
     
     # Validate that extension directory exists
     if not EXTENSION_PATH.exists():
