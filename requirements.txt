@@ -1,0 +1,14 @@
+# Playwright for Python
+playwright==1.48.0
+
+# Pytest and Playwright integration
+pytest==8.3.3
+pytest-playwright==0.5.2
+
+# Additional testing utilities
+pytest-html==4.1.1
+pytest-xdist==3.6.1
+
+# For better test output
+pytest-cov==6.0.0
+

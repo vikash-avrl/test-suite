@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Test results and reports
+test-results/*.html
+test-results/*.xml
+test-results/*.json
+test-results/screenshots/
+test-results/traces/
+test-results/videos/
+# Keep the README
+!test-results/README.md
+playwright-report/
+playwright/.cache/
+.pytest_cache/
+htmlcov/
+*.coverage
+
+# Playwright browsers
+.playwright/
+
+# Logs
+*.log
+pip-log.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Chrome extension (if you don't want example extension in repo)
+# chrome-extension/
+
