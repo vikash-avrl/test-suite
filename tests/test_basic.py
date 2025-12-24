@@ -10,7 +10,7 @@ import os
 def send_test_command(page: Page, action: str, data: dict = None):
     """
     Send a command to the extension via DOM event bridge
-    This works in both headed and headless modes!
+    This works in both headed and headless !
     """
     result = page.evaluate("""
         ({ action, data }) => {
