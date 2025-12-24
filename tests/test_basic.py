@@ -74,21 +74,39 @@ def test_extension_is_installed(page: Page, context):
     page.wait_for_load_state("networkidle")
     print(f"[OK] Test page loaded: {page.url}")
     
-    # Wait for extension to inject
-    print("[DEBUG] Waiting for extension to inject (3 seconds)...")
-    time.sleep(3)
+    # IMPORTANT: Wait longer for extension to inject (especially in CI/headless)
+    print("[DEBUG] Waiting for extension to inject...")
     
-    # Check if test bridge exists
-    bridge_exists = page.evaluate("""
-        () => {
-            const bridge = document.getElementById('__avrl-glass-test-bridge__');
-            return bridge !== null && bridge.getAttribute('data-ready') === 'true';
-        }
-    """)
+    # Check if running in CI
+    is_ci = os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true"
+    wait_time = 10 if is_ci else 5  # Wait longer in CI
     
-    print(f"[INFO] Test bridge exists: {bridge_exists}")
+    print(f"[DEBUG] Environment: {'CI (headless)' if is_ci else 'Local'}")
+    print(f"[DEBUG] Waiting {wait_time} seconds for extension...")
     
-    if bridge_exists:
+    # Wait with retry logic
+    bridge_found = False
+    for attempt in range(wait_time):
+        time.sleep(1)
+        
+        bridge_exists = page.evaluate("""
+            () => {
+                const bridge = document.getElementById('__avrl-glass-test-bridge__');
+                return bridge !== null && bridge.getAttribute('data-ready') === 'true';
+            }
+        """)
+        
+        if bridge_exists:
+            print(f"[OK] Test bridge found after {attempt + 1} seconds!")
+            bridge_found = True
+            break
+        
+        if attempt < wait_time - 1:
+            print(f"[WAIT] Attempt {attempt + 1}/{wait_time}... bridge not ready yet")
+    
+    print(f"[INFO] Test bridge exists: {bridge_found}")
+    
+    if bridge_found:
         print(f"[OK] Test bridge is ready!")
         
         # Test the bridge with a ping
@@ -98,10 +116,33 @@ def test_extension_is_installed(page: Page, context):
             print(f"[SUCCESS] Bridge communication working!")
             print(f"  - Ping response: {ping_result['message']}")
         else:
-            print(f"[WARNING] Bridge exists but ping failed")
+            print(f"[WARNING] Bridge exists but ping failed: {ping_result.get('error')}")
     else:
-        print(f"[WARNING] Test bridge not found")
-        print(f"[INFO] Make sure you added the test bridge code to content.js")
+        print(f"[ERROR] Test bridge not found after {wait_time} seconds!")
+        print(f"[INFO] This means:")
+        print(f"  1. Extension might not be loaded")
+        print(f"  2. Test bridge code might be missing from content.js")
+        print(f"  3. Content script might have errors preventing injection")
+        
+        # Take screenshot for debugging
+        page.screenshot(path="test-results/screenshots/bridge_not_found.png")
+        print(f"[SCREENSHOT] Saved debug screenshot")
+        
+        # Check console for errors
+        console_messages = []
+        page.on("console", lambda msg: console_messages.append(msg.text))
+        page.reload()
+        page.wait_for_load_state("networkidle")
+        time.sleep(2)
+        
+        errors = [msg for msg in console_messages if 'error' in msg.lower()]
+        if errors:
+            print(f"[INFO] Console errors found:")
+            for err in errors[:5]:
+                print(f"  - {err}")
+        
+        # Fail the test if bridge not found
+        pytest.fail("Test bridge not available - extension not properly loaded")
     
     # Method 3: Check for extension console messages
     console_messages = []
@@ -142,16 +183,35 @@ def test_click_popup_opens_new_page(page: Page, context: BrowserContext):
     page.wait_for_load_state("networkidle")
     print(f"[OK] Test page loaded")
     
-    # Wait for extension
+    # Wait for extension with retry logic
     print("[DEBUG] Waiting for extension to initialize...")
-    time.sleep(3)
     
-    # Check if bridge is available
-    bridge_exists = page.evaluate("() => document.getElementById('__avrl-glass-test-bridge__') !== null")
+    is_ci = os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true"
+    max_wait = 15 if is_ci else 10
     
-    if not bridge_exists:
-        print("[ERROR] Test bridge not found!")
-        print("[FIX] Add the test bridge code to your extension's content.js")
+    bridge_ready = False
+    for attempt in range(max_wait):
+        time.sleep(1)
+        
+        bridge_exists = page.evaluate("() => document.getElementById('__avrl-glass-test-bridge__') !== null")
+        
+        if bridge_exists:
+            bridge_ready = True
+            print(f"[OK] Test bridge ready after {attempt + 1} seconds")
+            break
+        
+        if attempt < max_wait - 1:
+            print(f"[WAIT] Attempt {attempt + 1}/{max_wait}...")
+    
+    if not bridge_ready:
+        print("[ERROR] Test bridge not found after waiting!")
+        print("[FIX] Ensure:")
+        print("  1. Extension ZIP contains test bridge code")
+        print("  2. content.js has the test bridge at the end")
+        print("  3. Extension loads properly in headless mode")
+        
+        page.screenshot(path="test-results/screenshots/bridge_not_ready.png")
+        
         pytest.skip("Test bridge not available - extension needs test hooks")
     
     print("[OK] Test bridge found")
