@@ -43,7 +43,7 @@ jobs:
       - name: Download Chrome Extension ZIP
         run: |
           # Replace with your extension ZIP URL
-          curl -L -o extension.zip https://storage.googleapis.com/avrlgeneration_static_assets_staging/glass_extension_for_testsuite/extension.zip
+          curl -L -o extension.zip https://storage.googleapis.com/avrlgeneration_static_assets_staging/glass_extension_for_testsuite/extension.zip?a=345345
           unzip extension.zip -d chrome-extension
           
           # Verify manifest exists
