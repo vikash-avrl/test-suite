@@ -59,23 +59,52 @@ def context(playwright: Playwright):
     print(f"[DEBUG] Running in CI mode: {is_ci}")
     
     # Launch persistent context with extension
+    # Note: Chrome extensions have LIMITED support in old headless mode
+    # Using new headless mode (--headless=new) for better extension support
+    launch_args = [
+        f"--disable-extensions-except={EXTENSION_PATH}",
+        f"--load-extension={EXTENSION_PATH}",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--disable-software-rasterizer",
+    ]
+    
+    # In CI, try using "new" headless mode which supports extensions better
+    if is_ci:
+        print("[DEBUG] Using new headless mode for better extension support")
+        # New headless mode via chrome_type instead of headless=True
+        launch_args.append("--headless=new")
+        headless_mode = False  # Let Chrome handle headless via flag
+    else:
+        headless_mode = False
+    
     context = playwright.chromium.launch_persistent_context(
         user_data_dir=user_data_dir,
-        headless=is_ci,  # Headless in CI, headed locally
-        args=[
-            f"--disable-extensions-except={EXTENSION_PATH}",
-            f"--load-extension={EXTENSION_PATH}",
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-gpu",  # Helps with headless mode
-            "--disable-dev-shm-usage",  # Helps with CI stability
-        ],
+        headless=headless_mode,
+        args=launch_args,
         viewport={"width": 1280, "height": 720},
         locale="en-US",
         timezone_id="America/New_York",
+        ignore_default_args=["--disable-extensions"],
     )
     
     print(f"[DEBUG] Browser context created with {len(context.pages)} page(s)")
+    
+    # Verify extension is loaded by checking for extension pages
+    extension_pages = [p for p in context.pages if p.url.startswith("chrome-extension://")]
+    if extension_pages:
+        print(f"[DEBUG] Found {len(extension_pages)} extension page(s):")
+        for ext_page in extension_pages:
+            print(f"  - {ext_page.url}")
+    else:
+        print(f"[WARNING] No extension pages found - extension may not be loaded!")
+        print(f"[INFO] Extension path: {EXTENSION_PATH}")
+        print(f"[INFO] Extension exists: {EXTENSION_PATH.exists()}")
+        if EXTENSION_PATH.exists():
+            manifest_path = EXTENSION_PATH / "manifest.json"
+            print(f"[INFO] manifest.json exists: {manifest_path.exists()}")
     
     yield context
     
