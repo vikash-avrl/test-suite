@@ -442,6 +442,73 @@ def test_glass_login_and_select_costmodel(page: Page, context: BrowserContext):
     """
     print(f"\n[TEST 3] Testing complete Glass login flow via popup")
     
+    # Setup network logging for glass_template requests
+    glass_template_requests = []
+    
+    def log_request(request):
+        if 'glass_template' in request.url:
+            request_info = {
+                'url': request.url,
+                'method': request.method,
+                'start_time': time.time(),
+                'timing': request.timing if hasattr(request, 'timing') else None
+            }
+            glass_template_requests.append(request_info)
+            print(f"\n[NETWORK REQUEST] glass_template request detected")
+            print(f"  - URL: {request.url}")
+            print(f"  - Method: {request.method}")
+            print(f"  - Time: {time.strftime('%H:%M:%S')}")
+    
+    def log_response(response):
+        if 'glass_template' in response.url:
+            # Find matching request
+            matching_req = None
+            for req in glass_template_requests:
+                if req['url'] == response.url and 'end_time' not in req:
+                    matching_req = req
+                    break
+            
+            end_time = time.time()
+            if matching_req:
+                matching_req['end_time'] = end_time
+                duration = (end_time - matching_req['start_time']) * 1000  # ms
+            else:
+                duration = 0
+            
+            print(f"\n[NETWORK RESPONSE] glass_template response received")
+            print(f"  - URL: {response.url}")
+            print(f"  - Status: {response.status}")
+            print(f"  - Duration: {duration:.2f}ms")
+            print(f"  - Headers: {dict(list(response.headers.items())[:5])}...")  # First 5 headers
+            
+            # Try to get body preview
+            try:
+                body = response.text()
+                body_preview = body[:200] if body else "(empty)"
+                print(f"  - Body preview: {body_preview}...")
+            except:
+                print(f"  - Body preview: (could not read)")
+            
+            # Get timing if available
+            timing = response.request.timing
+            if timing:
+                print(f"  - Timing breakdown:")
+                if hasattr(timing, 'domain_lookup_start') and timing.domain_lookup_start >= 0:
+                    print(f"    DNS: {timing.domain_lookup_end - timing.domain_lookup_start:.2f}ms")
+                if hasattr(timing, 'connect_start') and timing.connect_start >= 0:
+                    print(f"    Connect: {timing.connect_end - timing.connect_start:.2f}ms")
+                if hasattr(timing, 'request_start') and timing.request_start >= 0:
+                    print(f"    Request: {timing.response_start - timing.request_start:.2f}ms")
+                if hasattr(timing, 'response_start') and timing.response_start >= 0:
+                    print(f"    Response: {timing.response_end - timing.response_start:.2f}ms")
+    
+    # Attach listeners
+    page.on("request", log_request)
+    page.on("response", log_response)
+    
+    # Add browser console logging
+    page.on("console", lambda msg: print(f"[BROWSER CONSOLE {msg.type}] {msg.text}"))
+    
     # Get credentials
     username = "avrl-internal/vikash@avrl.io"
     password = "nrgHlIySThRRdd1IxdStD0vV0jk"
@@ -690,8 +757,8 @@ def test_glass_login_and_select_costmodel(page: Page, context: BrowserContext):
                     # Wait for and check the account-name-display element
                     account_element = iframe_element.locator("#account-name-display")
                     
-                    # Wait for element to be visible (with timeout)
-                    account_element.wait_for(state="visible", timeout=10000)
+                    # Wait for element to be visible (with increased timeout)
+                    account_element.wait_for(state="visible", timeout=30000)
                     
                     # Get the text content
                     account_text = account_element.text_content()

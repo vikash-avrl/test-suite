@@ -133,46 +133,44 @@ def page(context: BrowserContext):
     # Check if running in CI
     is_ci = os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true"
     
-    if not is_ci:
-        # Only intercept locally, not in CI
-        print(f"[DEBUG] Setting up API interception for glass_template (context level)")
-        print(f"[DEBUG] Will serve content from: {template_url}")
-        
-        def handle_route(route):
-            try:
-                print(f"[INTERCEPT] Caught request: {route.request.url}")
-                
-                # Read the local file content
-                file_path = template_url.replace("file:///", "").replace("file://", "")
-                
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                print(f"[INTERCEPT] Serving local file ({len(content)} bytes)")
-                
-                # Return 200 with actual content (not redirect!)
-                route.fulfill(
-                    status=200,
-                    content_type='text/html; charset=utf-8',
-                    body=content,
-                    headers={
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                        'Access-Control-Allow-Headers': '*'
-                    }
-                )
-            except Exception as e:
-                print(f"[ERROR] Interception failed: {e}")
-                import traceback
-                traceback.print_exc()
-                route.continue_()
-        
-        # Intercept at CONTEXT level (catches all frames/iframes)
-        context.route("https://glass.1avrl.com/glass_template", handle_route)
-        context.route("https://glass.1avrl.com/glass_template*", handle_route)
-        print(f"[DEBUG] Route interception activated on context")
-    else:
-        print(f"[DEBUG] Running in CI - no API interception")
+    # ALWAYS intercept (both local and CI)
+    print(f"[DEBUG] Setting up API interception for glass_template (context level)")
+    print(f"[DEBUG] Environment: {'CI' if is_ci else 'Local'}")
+    print(f"[DEBUG] Will serve content from: {template_url}")
+    
+    def handle_route(route):
+        try:
+            print(f"[INTERCEPT] Caught request: {route.request.url}")
+            
+            # Read the local file content
+            file_path = template_url.replace("file:///", "").replace("file://", "")
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            print(f"[INTERCEPT] Serving local file ({len(content)} bytes)")
+            
+            # Return 200 with actual content (not redirect!)
+            route.fulfill(
+                status=200,
+                content_type='text/html; charset=utf-8',
+                body=content,
+                headers={
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                    'Access-Control-Allow-Headers': '*'
+                }
+            )
+        except Exception as e:
+            print(f"[ERROR] Interception failed: {e}")
+            import traceback
+            traceback.print_exc()
+            route.continue_()
+    
+    # Intercept at CONTEXT level (catches all frames/iframes)
+    context.route("https://glass.1avrl.com/glass_template", handle_route)
+    context.route("https://glass.1avrl.com/glass_template*", handle_route)
+    print(f"[DEBUG] Route interception activated on context")
     
     # Use existing page if available, otherwise create new one
     if context.pages:
