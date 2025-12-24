@@ -42,8 +42,15 @@ jobs:
       # === OPTION 1: Download ZIP from URL (RECOMMENDED - Fastest!) ===
       - name: Download Chrome Extension ZIP
         run: |
-          # Replace with your extension ZIP URL
-          curl -L -o extension.zip https://storage.googleapis.com/avrlgeneration_static_assets_staging/glass_extension_for_testsuite/extension.zip?a=345345
+          # Add cache-busting timestamp to force fresh download
+          TIMESTAMP=$(date +%s)
+          echo "Downloading extension with cache-bust: $TIMESTAMP"
+          
+          # Download with cache-busting and no-cache headers
+          curl -L -H "Cache-Control: no-cache" -H "Pragma: no-cache" \
+            -o extension.zip \
+            "https://storage.googleapis.com/avrlgeneration_static_assets_staging/glass_extension_for_testsuite/extension.zip?t=$TIMESTAMP"
+          
           unzip extension.zip -d chrome-extension
           
           # Verify manifest exists
@@ -51,6 +58,15 @@ jobs:
             echo "Error: manifest.json not found!"
             exit 1
           fi
+          
+          # Verify test bridge code exists in content.js
+          if grep -q "__avrl-glass-test-bridge__" chrome-extension/content/content.js 2>/dev/null; then
+            echo "✓ Test bridge code found in extension"
+          else
+            echo "⚠ WARNING: Test bridge code NOT found in extension"
+            echo "  Tests requiring bridge will be skipped"
+          fi
+          
           echo "Extension downloaded successfully"
       
       - name: Run tests with downloaded extension
