@@ -700,6 +700,10 @@ def test_glass_login_and_select_costmodel(page: Page, context: BrowserContext):
                     print(f"  - Found #account-name-display")
                     print(f"  - Account text: {account_text}")
                     
+                    # Take screenshot showing loaded iframe with account
+                    page.screenshot(path="test-results/screenshots/iframe_with_account_loaded.png")
+                    print(f"[SCREENSHOT] Saved iframe_with_account_loaded.png")
+                    
                 except Exception as e:
                     print(f"[WARNING] Iframe content not fully loaded: {e}")
                     print(f"  - #account-name-display element not found")

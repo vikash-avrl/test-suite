@@ -13,6 +13,26 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Set template URL from repo file
+        run: |
+          # Get the absolute path to template0.html
+          TEMPLATE_PATH="${GITHUB_WORKSPACE}/template0.html"
+          
+          # Convert to file:// URL for browser
+          TEMPLATE_URL="file://${TEMPLATE_PATH}"
+          
+          echo "TEMPLATE_URL=${TEMPLATE_URL}" >> $GITHUB_ENV
+          echo "Template URL set to: ${TEMPLATE_URL}"
+          
+          # Verify file exists
+          if [ -f "${TEMPLATE_PATH}" ]; then
+            echo "✓ template0.html found in repository"
+          else
+            echo "✗ ERROR: template0.html not found!"
+            echo "Please ensure template0.html is in the root of your repository"
+            exit 1
+          fi
         
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -72,7 +92,12 @@ jobs:
       - name: Run tests with downloaded extension
         env:
           EXTENSION_PATH: ${{ github.workspace }}/chrome-extension
+          TEMPLATE_FILE_PATH: file://${{ github.workspace }}/template0.html
+          GLASS_USERNAME: ${{ secrets.GLASS_USERNAME }}
+          GLASS_PASSWORD: ${{ secrets.GLASS_PASSWORD }}
         run: |
+          echo "Running tests with intercepted template"
+          echo "Template file: $TEMPLATE_FILE_PATH"
           pytest tests/ -v
         continue-on-error: false
       
