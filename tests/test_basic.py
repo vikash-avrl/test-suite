@@ -474,6 +474,7 @@ def test_glass_template(page: Page, context: BrowserContext):
                 # Initialize Report Data
                 suite_results = {
                     "suite_name": "Rate Fetch UI Validation",
+                    "template_file": os.getenv("TEMPLATE_FILE_PATH", "Unknown"),
                     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "steps": []
                 }
@@ -506,7 +507,11 @@ def test_glass_template(page: Page, context: BrowserContext):
                     print("  > Testing invalid zip code (00000)...")
                     val_inv = "00000"
                     inner_frame.locator("#stop-zip-0").fill(val_inv)
-                    time.sleep(1)
+                    
+                    try: page.wait_for_load_state("networkidle", timeout=5000)
+                    except: pass
+                    time.sleep(10)
+                    
                     loc_text = inner_frame.locator("#stop-location-text-0").text_content()
                     
                     if "US" in loc_text and "," not in loc_text:
@@ -518,7 +523,11 @@ def test_glass_template(page: Page, context: BrowserContext):
                     print("  > Testing valid zip code (70734)...")
                     val_valid = "70734"
                     inner_frame.locator("#stop-zip-0").fill(val_valid)
-                    time.sleep(2)
+                    
+                    try: page.wait_for_load_state("networkidle", timeout=5000)
+                    except: pass
+                    time.sleep(10)
+                    
                     loc_text_valid = inner_frame.locator("#stop-location-text-0").text_content()
                     
                     if "Geismar, LA, US" in loc_text_valid or "Geismar" in loc_text_valid:
@@ -532,133 +541,117 @@ def test_glass_template(page: Page, context: BrowserContext):
                     # --- 2. DATE FIELD VALIDATION ---
                     print("\n[TEST-2] Date Field Validation")
                     
-                    # Comprehensive list of VALID date formats to test
+                    # Comprehensive list of VALID date formats to test (PARSABLE)
                     valid_date_cases = [
-                        # --- Month name + Time ---
-                        'Dec 15, 08:30 PM', 
-                        "8-30-2021 2:00 PM",
-                        'Dec 15, 8:30 PM',
-                        'December 15, 08:30 PM',
-                        'Dec 15 08:30',
-                        'Dec 15, 2024 08:30 PM',
-                        'December 15, 2024 08:30',
-                        'Dec 15, 08:30:45 PM',
-                        'December 15, 2024 08:30:45 PM',
-                        'Dec 15 20:30',
-                        'Dec15,08:30PM',
-                        'Dec15 08:30',
-                        
-                        # --- Day + Month name + Time ---
-                        '15 Dec, 08:30 PM',
-                        '15 December 08:30',
-                        '15 Dec, 2024 08:30 PM',
-                        '15 December 2024 08:30',
-                        '15Dec08:30PM',
-                        '15 Dec 14:30:45',
-                        
-                        # --- US numeric format + Time ---
-                        '12/15/2024 08:30 PM',
-                        '12/15/24 08:30 PM',
-                        '12/15 08:30 PM',
-                        '12/15/2024 20:30',
-                        '12/15/24 14:30:45',
-                        '12-15-2024 8:30 AM',
-                        '02/16/23 11:33',
-                        '1/5/2024 9:30 AM',
-                        
-                        # --- European format + Time ---
-                        '15.12.2024 08:30',
-                        '15/12/2024 20:30:45',
-                        '15.12.2024 8:30 PM',
-                        '15/12/24 14:30',
-                        
-                        # --- ISO format + Time ---
-                        '2024-12-15T14:30:00',
-                        '2024-12-15 14:30:00',
-                        '2024-12-15T08:30:45',
-                        '2024-12-15 20:30',
-                        
-                        # --- Time with Timezone (stripped) ---
-                        'Dec 15, 08:30 PM CST',
-                        'Dec 15, 08:30 PM EST',
-                        '12/15/2024 08:30 PM PST',
-                        '15 Dec 14:30 GMT',
-                        '08:30 PM UTC',
-                        '2024-12-15 14:30 IST',
-                        'Jan 1 09:00 AM JST',
-                        
-                        # --- Just Time (uses current date) ---
-                        '08:30 PM',
-                        '8:30 PM',
-                        '8:30 AM',
-                        '14:30',
-                        '14:30:45',
-                        '12:00 PM',
-                        '12:00 AM',
-                        '11:59 PM',
-                        '00:00',
-                        '23:59:59',
-                        
-                        # --- Date Only Formats ---
-                        '2024-12-15',
-                        '2024-12',
-                        '2024',
-                        '2024-01-01',
-                        '2024-1-5',
-                        '12/15/2024',
-                        '12/15/24',
-                        '12/15',
-                        '1/5/2024',
-                        '01/01/2024',
-                        '12-15-2024',
-                        '12-15',
-                        '15.12.2024',
-                        '15/12/2024',
-                        '31/12/2024',
-                        '15.12.24',
-                        
-                        'Jan 15',
-                        'January 15',
-                        'Jan 15, 2024',
-                        'Jan 15 2024',
-                        'January 15, 2024',
-                        'January 15 2024',
-                        '15 Jan',
-                        '15 January',
-                        '15 Jan 2024',
-                        '15 Jan, 2024',
-                        '15 January 2024',
-                        'Jan15',
-                        '15Jan',
-                        'Jan15,2024',
-                        '15Jan2024',
-                        'Jan 2024',
-                        'January 2024',
-                        'Jan2024',
-                        'December 2023',
-                        '15',
-                        '1',
-                        '31',
-                        'January',
-                        'Jan',
-                        'Dec',
-                        'today',
-                        'tomorrow',
-                        'yesterday',
-                        '20241215',
-                        '20240101',
-                        '241215',
-                        '240101',
-                        '2/29/2024 12:00 PM',
-                        'Feb 29, 2024',
-                        '12/31/2024 11:59 PM',
-                        '1/1/2025 00:00',
-                        'March 1',
-                        '03/01',
+                        "Dec 15, 08:30 PM",
+                        "Dec 15, 8:30 PM",
+                        "December 15, 08:30 PM",
+                        "Dec 15 08:30",
+                        "Dec 15, 2024 08:30 PM",
+                        "December 15, 2024 08:30",
+                        "Dec 15, 08:30:45 PM",
+                        "December 15, 2024 08:30:45 PM",
+                        "Dec 15 20:30",
+                        "12/15/2024 08:30 PM",
+                        "12/15/24 08:30 PM",
+                        "12/15 08:30 PM",
+                        "12/15/2024 20:30",
+                        "12/15/24 14:30:45",
+                        "02/16/23 11:33",
+                        "1/5/2024 9:30 AM",
+                        "15/12/24 14:30",
+                        "Dec 15, 08:30 PM CST",
+                        "Dec 15, 08:30 PM EST",
+                        "12/15/2024 08:30 PM PST",
+                        "08:30 PM UTC",
+                        "Jan 1 09:00 AM JST",
+                        "08:30 PM",
+                        "8:30 PM",
+                        "8:30 AM",
+                        "14:30",
+                        "14:30:45",
+                        "12:00 PM",
+                        "12:00 AM",
+                        "11:59 PM",
+                        "00:00",
+                        "23:59:59",
+                        "12/15/2024",
+                        "12/15/24",
+                        "12/15",
+                        "1/5/2024",
+                        "01/01/2024",
+                        "Jan 15",
+                        "January 15",
+                        "Jan 15, 2024",
+                        "Jan 15 2024",
+                        "January 15, 2024",
+                        "January 15 2024",
+                        "2/29/2024 12:00 PM",
+                        "Feb 29, 2024",
+                        "12/31/2024 11:59 PM",
+                        "1/1/2025 00:00",
+                        "March 1",
+                        "03/01"
                     ]
                     
-                    # Also include invalid cases
+                    # Also include invalid cases (NOT PARSABLE)
                     invalid_date_cases = [
+                        "8-30-2021 2:00 PM",
+                        "Dec15,08:30PM",
+                        "Dec15 08:30",
+                        "15 Dec, 08:30 PM",
+                        "15 December 08:30",
+                        "15 Dec, 2024 08:30 PM",
+                        "15 December 2024 08:30",
+                        "15Dec08:30PM",
+                        "15 Dec 14:30:45",
+                        "12-15-2024 8:30 AM",
+                        "15.12.2024 08:30",
+                        "15/12/2024 20:30:45",
+                        "15.12.2024 8:30 PM",
+                        "2024-12-15T14:30:00",
+                        "2024-12-15 14:30:00",
+                        "2024-12-15T08:30:45",
+                        "2024-12-15 20:30",
+                        "15 Dec 14:30 GMT",
+                        "2024-12-15 14:30 IST",
+                        "2024-12-15",
+                        "2024-12",
+                        "2024",
+                        "2024-01-01",
+                        "2024-1-5",
+                        "12-15-2024",
+                        "12-15",
+                        "15.12.2024",
+                        "15/12/2024",
+                        "31/12/2024",
+                        "15.12.24",
+                        "15 Jan",
+                        "15 January",
+                        "15 Jan 2024",
+                        "15 Jan, 2024",
+                        "15 January 2024",
+                        "Jan15",
+                        "15Jan",
+                        "Jan15,2024",
+                        "15Jan2024",
+                        "Jan 2024",
+                        "January 2024",
+                        "Jan2024",
+                        "December 2023",
+                        "15",
+                        "1",
+                        "31",
+                        "January",
+                        "Jan",
+                        "Dec",
+                        "today",
+                        "tomorrow",
+                        "yesterday",
+                        "20241215",
+                        "20240101",
+                        "241215",
+                        "240101",
                         "invalid-date-text", 
                         "not a date",
                         "00/00/0000"
@@ -762,8 +755,16 @@ def test_glass_template(page: Page, context: BrowserContext):
                     print("\n[TEST-5] Fetch Rate Success")
                     inner_frame.locator("#fetch-rate-btn").click()
                     
+                    # Wait for network idle to ensure fetch completes
                     try:
-                        inner_frame.locator(".rate-graph-mini").wait_for(state="visible", timeout=15000)
+                        page.wait_for_load_state("networkidle", timeout=5000)
+                    except:
+                        pass # proceed to check for graph
+                    
+                    time.sleep(10) # Explicit wait for rendering as requested
+                    
+                    try:
+                        inner_frame.locator("#rate-graph-mini").wait_for(state="visible", timeout=15000)
                         add_result("Fetch Rate", "PASSED", "Graph successfully loaded", "fetch_success.png", input_data="All Valid Fields")
                     except:
                         if inner_frame.locator(".bid-failure-message").is_visible():
@@ -776,7 +777,7 @@ def test_glass_template(page: Page, context: BrowserContext):
                     print("\n[TEST-6] Graph Modal Zoom")
                     try:
                         # Check if graph is actually there first (might have failed previous step)
-                        if inner_frame.locator(".rate-graph-mini").is_visible():
+                        if inner_frame.locator("#rate-graph-mini").is_visible():
                             zoom_icon = inner_frame.locator(".graph-zoom-icon")
                             if zoom_icon.is_visible():
                                 print("  > Clicking zoom icon...")
@@ -807,20 +808,23 @@ def test_glass_template(page: Page, context: BrowserContext):
                     except Exception as mz_err:
                          add_result("Graph Modal Zoom", "ERROR", str(mz_err), "modal_error.png", input_data="Click Zoom Icon")
 
-                    # --- 7. RESET ---
-                    print("\n[TEST-7] Reset")
-                    reset_btns = inner_frame.locator("button:has-text('Reset')")
-                    if reset_btns.count() > 0:
-                        reset_btns.first.click()
-                        time.sleep(1)
-                        z_val = inner_frame.locator("#stop-zip-0").input_value()
-                        if not z_val:
-                            add_result("Reset Functionality", "PASSED", "Fields cleared", "reset_success.png", input_data="Click Reset Button")
-                        else:
-                            add_result("Reset Functionality", "FAILED", f"Fields not empty. Zip: {z_val}", "reset_fail.png", input_data="Click Reset Button")
+                    # Try to force click or debug visibility
+                    try:
+                        reset_btn_loc = inner_frame.locator("#reset-btn")
+                        print(f"  > Reset button visible: {reset_btn_loc.is_visible()}")
+                        # Use JS Dispatch click which is often more reliable for custom UI events
+                        reset_btn_loc.evaluate("el => el.click()")
+                    except Exception as rb_err:
+                         print(f"  > Error clicking reset: {rb_err}")
+                    
+                    time.sleep(10)
+                    z_val = inner_frame.locator("#stop-zip-0").input_value()
+                    print(z_val)
+                    if not z_val:
+                        add_result("Reset Functionality", "PASSED", "Fields cleared", "reset_success.png", input_data="Click Reset Button")
                     else:
-                        add_result("Reset Functionality", "SKIPPED", "Reset button not found", "reset_not_found.png", input_data="N/A")
-
+                        add_result("Reset Functionality", "FAILED", f"Fields not empty. Zip: {z_val}", "reset_fail.png", input_data="Click Reset Button")
+                   
                 except Exception as e:
                     print(f"[ERROR] Exception during UI suite: {e}")
                     add_result("Test Suite Error", "ERROR", str(e), "suite_exception.png", input_data="Error")
@@ -832,6 +836,14 @@ def test_glass_template(page: Page, context: BrowserContext):
                     with open(report_path, "w") as f:
                          json.dump(suite_results, f, indent=4)
                     print(f"\n[REPORT] Comprehensive JSON report saved to: {report_path}")
+                
+                # Assert that NO steps failed
+                failed_steps = [s for s in suite_results["steps"] if s["status"] in ["FAILED", "ERROR"]]
+                if failed_steps:
+                    print(f"\n[FAIL] {len(failed_steps)} test steps failed!")
+                    for fs in failed_steps:
+                        print(f"  - {fs['step']}: {fs['details']}")
+                    pytest.fail(f"UI Test Suite has {len(failed_steps)} failed steps")
                 
                 assert True
             

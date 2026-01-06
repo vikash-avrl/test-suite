@@ -6494,38 +6494,7 @@
                         };
                     }
 
-                    // function parseDateField(inputElement) {
-                    //     let value = inputElement.value.trim();
-                    //     if (!value) return;
-                    //     value = stripTimezone(value);
-                    //     const parsed = parseCustomDateTime(value);
-                    //     console.log(parsed)
-                    //     if (!parsed) return handleInvalid(inputElement);
-                    //     const localDateTime =
-                    //         parsed.getFullYear() + "-" +
-                    //         String(parsed.getMonth() + 1).padStart(2, "0") + "-" +
-                    //         String(parsed.getDate()).padStart(2, "0") + "T" +
-                    //         String(parsed.getHours()).padStart(2, "0") + ":" +
-                    //         String(parsed.getMinutes()).padStart(2, "0") + ":" +
-                    //         String(parsed.getSeconds()).padStart(2, "0");
-                    //     inputElement.setAttribute("data-parsed-date", localDateTime);
-                    //     const monthStr = String(parsed.getMonth() + 1).padStart(2, "0");
-                    //     const dayStr = String(parsed.getDate()).padStart(2, "0");
-                    //     const yearStr = parsed.getFullYear();
-                    //     let displayHour = parsed.getHours();
-                    //     const displayMinute = String(parsed.getMinutes()).padStart(2, "0");
-                    //     const displayAMPM = displayHour >= 12 ? "PM" : "AM";
-                    //     displayHour = displayHour % 12 || 12;
-                    //     const displayHourStr = String(displayHour).padStart(2, "0");
-                    //     inputElement.value = `${monthStr}/${dayStr}/${yearStr} ${displayHourStr}:${displayMinute} ${displayAMPM}`;
-                    //     inputElement.style.borderColor = "#4CAF50";
-                    //     inputElement.style.color = "#000";
-                    //     const fieldDiv = inputElement.closest(".input-field");
-                    //     if (fieldDiv) fieldDiv.classList.add("has-value");
-                    //     setTimeout(() => (inputElement.style.borderColor = ""), 1000);
-                    //     showToast("✓ Date parsed successfully", 2000);
-                    // }
-
+                
                     function parseDateField(inputElement) {
                         let value = inputElement.value.trim();
                         if (!value) return;
