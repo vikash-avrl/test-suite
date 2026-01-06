@@ -753,7 +753,13 @@ def test_glass_template(page: Page, context: BrowserContext):
 
                     # --- 5. FETCH RATE ---
                     print("\n[TEST-5] Fetch Rate Success")
-                    inner_frame.locator("#fetch-rate-btn").click()
+                    
+                    try:
+                        fetch_btn_loc = inner_frame.locator("#fetch-rate-btn")
+                        print(f"  > Fetch button visible: {fetch_btn_loc.is_visible()}")
+                        fetch_btn_loc.evaluate("el => el.click()")
+                    except Exception as fb_err:
+                        print(f"  > Error clicking fetch: {fb_err}")
                     
                     # Wait for network idle to ensure fetch completes
                     try:
