@@ -162,7 +162,10 @@ jobs:
           # Note: Simple text message format for this webhook type usually, or card JSON if supported.
           # Based on request for "card format", we will try sending a structured JSON body.
           
-          read -r -d '' BODY <<EOF
+          # Construct simple card JSON payload
+          # Using cat to write to file to avoid 'read' exit code issues in set -e scripts
+          
+          cat <<EOF > payload.json
           {
             "type": "message",
             "attachments": [
@@ -201,5 +204,5 @@ jobs:
           EOF
           
           echo "Sending notification to Teams..."
-          curl -H "Content-Type: application/json" -d "$BODY" "https://defaultd469d4ef82584600bbdabe4732e973.e2.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5ec0a93428a24e9a9740a4b90cdbbc17/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=b05S_Yy5T2xZ1n632FXUyfbdBUx231cx_-SnrV2WJfY"
+          curl -H "Content-Type: application/json" -d @payload.json "https://defaultd469d4ef82584600bbdabe4732e973.e2.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5ec0a93428a24e9a9740a4b90cdbbc17/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=b05S_Yy5T2xZ1n632FXUyfbdBUx231cx_-SnrV2WJfY"
 
