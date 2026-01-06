@@ -57,7 +57,6 @@ def select_costmodel(page: Page):
     try:
         print(f"[COSTMODEL] Looking for costmodel button...")
         
-        # Try multiple selectors
         selectors = [
             "button:has-text('costmodel')",
             "button:has-text('Costmodel')",
