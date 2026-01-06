@@ -14,25 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Set template URL from repo file
-        run: |
-          # Get the absolute path to template0.html
-          TEMPLATE_PATH="${GITHUB_WORKSPACE}/template0.html"
-          
-          # Convert to file:// URL for browser
-          TEMPLATE_URL="file://${TEMPLATE_PATH}"
-          
-          echo "TEMPLATE_URL=${TEMPLATE_URL}" >> $GITHUB_ENV
-          echo "Template URL set to: ${TEMPLATE_URL}"
-          
-          # Verify file exists
-          if [ -f "${TEMPLATE_PATH}" ]; then
-            echo "✓ template0.html found in repository"
-          else
-            echo "✗ ERROR: template0.html not found!"
-            echo "Please ensure template0.html is in the root of your repository"
-            exit 1
-          fi
+
         
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -89,17 +71,33 @@ jobs:
           
           echo "Extension downloaded successfully"
       
+      - name: Resolve latest template file
+        id: resolve-template
+        run: |
+          # Find all template HTML files, sort strictly by version number in filename (V-sort)
+          LATEST_TEMPLATE=$(ls template*.html 2>/dev/null | sort -V | tail -n 1)
+          
+          if [ -z "$LATEST_TEMPLATE" ]; then
+             echo "No template file found matching 'template*.html'!"
+             exit 1
+          fi
+          
+          FULL_PATH="file://${{ github.workspace }}/${LATEST_TEMPLATE}"
+          echo "TEMPLATE_FILE_PATH=$FULL_PATH" >> $GITHUB_ENV
+          echo "Resolved latest template: $LATEST_TEMPLATE"
+          echo "Set TEMPLATE_FILE_PATH to: $FULL_PATH"
+
       - name: Run tests with downloaded extension
         env:
           EXTENSION_PATH: ${{ github.workspace }}/chrome-extension
-          TEMPLATE_FILE_PATH: file://${{ github.workspace }}/template0.html
           GLASS_USERNAME: ${{ secrets.GLASS_USERNAME }}
           GLASS_PASSWORD: ${{ secrets.GLASS_PASSWORD }}
+          # TEMPLATE_FILE_PATH is now provided by GITHUB_ENV from previous step
         run: |
           echo "Running tests with intercepted template"
           echo "Template file: $TEMPLATE_FILE_PATH"
-          pytest tests/ -v -s
-        continue-on-error: false
+          # Pytest command is simplified as pytest.ini now handles defaults
+          pytest
       
       # List test results directory contents (for debugging)
       - name: List test results
@@ -116,52 +114,22 @@ jobs:
       # Upload screenshots and test artifacts (always run, even on failure)
       - name: Upload test screenshots and artifacts
         if: always()  # Always upload, even if tests fail
+      # Upload EVERYTHING in test-results directory
+      - name: Upload Test Results Artifacts
+        if: always()  # Always upload, even if tests fail
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ github.run_number }}
           path: |
             test-results/screenshots/
+            test-results/*.json
+            test-results/report.html
             test-results/traces/
           retention-days: 30
-          if-no-files-found: ignore
-      
-      # === OPTION 2: Checkout from different repository ===
-      # - name: Checkout Chrome Extension
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: YOUR-USERNAME/YOUR-EXTENSION-REPO
-      #     path: chrome-extension
-      #     token: ${{ secrets.GITHUB_TOKEN }}  # or PAT_TOKEN for private
-      
-      # - name: Run tests
-      #   env:
-      #     EXTENSION_PATH: ${{ github.workspace }}/chrome-extension
-      #   run: |
-      #     pytest tests/ -v --html=test-results/report.html --self-contained-html
-      
-      # === OPTION 3: Extension in same repo ===
-      # - name: Run tests with extension from repo
-      #   env:
-      #     EXTENSION_PATH: ${{ github.workspace }}/my-extension
-      #   run: |
-      #     pytest tests/ -v --html=test-results/report.html --self-contained-html
-      
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-test-results
-          path: |
-            test-results/screenshots/
-          retention-days: 30
-      
-      - name: Upload HTML report separately for easy viewing
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: html-test-report
-          path: test-results/report.html
-          retention-days: 30
+          if-no-files-found: warn
+
+      # Redundant steps removed for clarity since the first one captures everything needed
+
       
       - name: Comment PR with test results
         if: github.event_name == 'pull_request' && always()

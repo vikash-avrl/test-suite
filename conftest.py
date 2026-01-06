@@ -69,6 +69,8 @@ def context(playwright: Playwright):
         "--disable-gpu",
         "--disable-dev-shm-usage",
         "--disable-software-rasterizer",
+        "--disable-web-security",
+        "--disable-features=IsolateOrigins,site-per-process",
     ]
     
     # In CI, try using "new" headless mode which supports extensions better
