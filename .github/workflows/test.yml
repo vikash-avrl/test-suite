@@ -1,0 +1,169 @@
+name: Chrome Extension Tests
+
+on:
+  push:
+    branches: ["master"]
+
+jobs:
+  test:
+    name: Run Playwright Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Install Playwright browsers
+        run: |
+          playwright install chromium
+          playwright install-deps chromium
+      
+      # Create test results directories before running tests
+      - name: Create test results directories
+        run: |
+          mkdir -p test-results/screenshots
+          mkdir -p test-results/traces
+          echo "Test results directories created"
+      
+      # IMPORTANT: This is where you specify your Chrome extension
+      
+      # === OPTION 1: Download ZIP from URL (RECOMMENDED - Fastest!) ===
+      - name: Download Chrome Extension ZIP
+        run: |
+          # Add cache-busting timestamp to force fresh download
+          TIMESTAMP=$(date +%s)
+          echo "Downloading extension with cache-bust: $TIMESTAMP"
+          
+          # Download with cache-busting and no-cache headers
+          curl -L -H "Cache-Control: no-cache" -H "Pragma: no-cache" \
+            -o extension.zip \
+            "https://storage.googleapis.com/avrlgeneration_static_assets_staging/glass_extension_for_testsuite/extension.zip?t=$TIMESTAMP"
+          
+          unzip extension.zip -d chrome-extension
+          
+          # Verify manifest exists
+          if [ ! -f "chrome-extension/manifest.json" ]; then
+            echo "Error: manifest.json not found!"
+            exit 1
+          fi
+          
+          # Verify test bridge code exists in content.js
+          if grep -q "__avrl-glass-test-bridge__" chrome-extension/content/content.js 2>/dev/null; then
+            echo "✓ Test bridge code found in extension"
+          else
+            echo "⚠ WARNING: Test bridge code NOT found in extension"
+            echo "  Tests requiring bridge will be skipped"
+          fi
+          
+          echo "Extension downloaded successfully"
+      
+      - name: Resolve latest template file
+        id: resolve-template
+        run: |
+          # Find all template HTML files, sort strictly by version number in filename (V-sort)
+          LATEST_TEMPLATE=$(ls template*.html 2>/dev/null | sort -V | tail -n 1)
+          
+          if [ -z "$LATEST_TEMPLATE" ]; then
+             echo "No template file found matching 'template*.html'!"
+             exit 1
+          fi
+          
+          FULL_PATH="file://${{ github.workspace }}/${LATEST_TEMPLATE}"
+          echo "TEMPLATE_FILE_PATH=$FULL_PATH" >> $GITHUB_ENV
+          echo "Resolved latest template: $LATEST_TEMPLATE"
+          echo "Set TEMPLATE_FILE_PATH to: $FULL_PATH"
+
+      - name: Run tests with downloaded extension
+        env:
+          EXTENSION_PATH: ${{ github.workspace }}/chrome-extension
+          GLASS_USERNAME: ${{ secrets.GLASS_USERNAME }}
+          GLASS_PASSWORD: ${{ secrets.GLASS_PASSWORD }}
+          # TEMPLATE_FILE_PATH is now provided by GITHUB_ENV from previous step
+        run: |
+          echo "Running tests with intercepted template"
+          echo "Template file: $TEMPLATE_FILE_PATH"
+          # Pytest command is simplified as pytest.ini now handles defaults
+          pytest
+
+      - name: Upload HTML template on success
+        if: success()
+        env:
+            TEMPLATE_FILE_PATH: ${{ env.TEMPLATE_FILE_PATH }}
+        run: |
+          echo "All tests passed! Uploading template..."
+          # Strip 'file://' prefix to get local path
+          LOCAL_PATH="${TEMPLATE_FILE_PATH#file://}"
+          echo "Uploading file: $LOCAL_PATH"
+          
+          # Upload via curl
+          curl -X POST -F "file=@$LOCAL_PATH" https://testglass-dot-vikash-avrl-live.uc.r.appspot.com/upload_html || true
+          echo "Upload attempt completed."
+      
+      # List test results directory contents (for debugging)
+      - name: List test results
+        if: always()
+        run: |
+          echo "=== Test Results Directory ==="
+          if [ -d "test-results" ]; then
+            echo "✓ test-results exists"
+            ls -lahR test-results/
+          else
+            echo "✗ test-results directory not found"
+          fi
+      
+      # Upload EVERYTHING in test-results directory
+      - name: Upload Test Results Artifacts
+        if: always()  # Always upload, even if tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: |
+            test-results/screenshots/
+            test-results/*.json
+            test-results/report.html
+            test-results/traces/
+          retention-days: 30
+          if-no-files-found: warn
+
+      # Redundant steps removed for clarity since the first one captures everything needed
+
+      
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = 'test-results/report.html';
+            
+            let comment = '## 🧪 Test Results\n\n';
+            
+            if (fs.existsSync(reportPath)) {
+              comment += '✅ Tests completed. Download the full report from the artifacts.\n\n';
+            } else {
+              comment += '❌ Test report not found.\n\n';
+            }
+            
+            comment += `**Commit:** ${context.sha}\n`;
+            comment += `**Workflow:** ${context.workflow}\n`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
