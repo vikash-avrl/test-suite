@@ -193,7 +193,7 @@ jobs:
                     },
                     {
                       "type": "TextBlock",
-                      "text": "[View Artifacts & Logs]($ARTIFACT_URL)",
+                      "text": "[View Run Summary & Artifacts]($ARTIFACT_URL)",
                       "wrap": true
                     }
                   ]
