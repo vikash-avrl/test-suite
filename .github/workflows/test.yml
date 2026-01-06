@@ -141,29 +141,65 @@ jobs:
       # Redundant steps removed for clarity since the first one captures everything needed
 
       
-      - name: Comment PR with test results
-        if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const reportPath = 'test-results/report.html';
-            
-            let comment = '## 🧪 Test Results\n\n';
-            
-            if (fs.existsSync(reportPath)) {
-              comment += '✅ Tests completed. Download the full report from the artifacts.\n\n';
-            } else {
-              comment += '❌ Test report not found.\n\n';
-            }
-            
-            comment += `**Commit:** ${context.sha}\n`;
-            comment += `**Workflow:** ${context.workflow}\n`;
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
+      - name: Send Teams Notification
+        if: always()
+        run: |
+          # Determine status color/symbol
+          if [ "${{ job.status }}" == "success" ]; then
+            STATUS_EMOJI="✅"
+            STATUS_TEXT="PASSED"
+            COLOR="Good"
+          else
+            STATUS_EMOJI="❌"
+            STATUS_TEXT="FAILED"
+            COLOR="Attention"
+          fi
+          
+          ARTIFACT_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Construct simple card JSON payload
+          # Note: Simple text message format for this webhook type usually, or card JSON if supported.
+          # Based on request for "card format", we will try sending a structured JSON body.
+          
+          read -r -d '' BODY <<EOF
+          {
+            "type": "message",
+            "attachments": [
+              {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                  "\$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                  "type": "AdaptiveCard",
+                  "version": "1.2",
+                  "body": [
+                    {
+                      "type": "TextBlock",
+                      "text": "Chrome Extension Test Results",
+                      "weight": "Bolder",
+                      "size": "Medium"
+                    },
+                    {
+                      "type": "FactSet",
+                      "facts": [
+                        { "title": "Status:", "value": "$STATUS_EMOJI $STATUS_TEXT" },
+                        { "title": "Timestamp:", "value": "$TIMESTAMP" },
+                        { "title": "Commit:", "value": "${{ github.sha }}" },
+                        { "title": "Branch:", "value": "${{ github.ref_name }}" }
+                      ]
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "[View Artifacts & Logs]($ARTIFACT_URL)",
+                      "wrap": true
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+          EOF
+          
+          echo "Sending notification to Teams..."
+          curl -H "Content-Type: application/json" -d "$BODY" "https://defaultd469d4ef82584600bbdabe4732e973.e2.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5ec0a93428a24e9a9740a4b90cdbbc17/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=b05S_Yy5T2xZ1n632FXUyfbdBUx231cx_-SnrV2WJfY"
 
