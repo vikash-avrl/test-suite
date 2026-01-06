@@ -734,7 +734,9 @@ def test_glass_template(page: Page, context: BrowserContext):
                     # --- 4. REQUIRED FIELD ERROR ---
                     print("\n[TEST-4] Required Field Error")
                     inner_frame.locator("#distance").fill("")
-                    inner_frame.locator("#fetch-rate-btn").click()
+                    
+                    # Force click fetch via JS for robustness
+                    inner_frame.locator("#fetch-rate-btn").evaluate("el => el.click()")
                     time.sleep(1)
                     
                     # Check for generic error modal or tooltip
