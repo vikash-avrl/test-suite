@@ -504,10 +504,10 @@ def phase_fetch_positive(page: Page, frame, results):
     frame.locator("#fetch-rate-btn").evaluate("el => el.click()")
     wait_for_settle(page, 10)
 
-    if (
-        frame.locator("#rate-graph-mini").count() > 0
-        or frame.locator(".bid-failure-message").count() > 0
-    ):
+    rate_text = frame.locator("#avrl-rate").text_content() or ""
+    failure_count = frame.locator(".bid-failure-message").count()
+
+    if rate_text.strip() != "$----" or failure_count > 0:
         record_result(
             results, "FETCH", "Fetch Rate",
             "All Valid Fields",
@@ -579,7 +579,7 @@ def phase_graph_and_reset(page: Page, frame, results):
 # FINAL ORCHESTRATOR
 # =========================================================
 
-@pytest.mark.smoke
+
 def test_glass_template_phase_based(page: Page, context: BrowserContext):
     try:
         frame = phase_login_and_iframe(page, context, TEST_RESULTS)
