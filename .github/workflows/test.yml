@@ -3,7 +3,6 @@ name: Chrome Extension Tests
 on:
   push:
     branches: ["master"]
-  workflow_dispatch:  # Allow manual triggers
 
 jobs:
   test:
@@ -111,9 +110,6 @@ jobs:
             echo "✗ test-results directory not found"
           fi
       
-      # Upload screenshots and test artifacts (always run, even on failure)
-      - name: Upload test screenshots and artifacts
-        if: always()  # Always upload, even if tests fail
       # Upload EVERYTHING in test-results directory
       - name: Upload Test Results Artifacts
         if: always()  # Always upload, even if tests fail
