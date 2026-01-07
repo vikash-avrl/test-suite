@@ -220,7 +220,7 @@ def phase_login_and_iframe(page: Page, context: BrowserContext, results):
         login.wait_for_load_state("networkidle")
 
         # Get credentials from environment variables (GitHub Secrets)
-        username = os.getenv("GLASS_USERNAME") 
+        username = os.getenv("GLASS_USERNAME")
         password = os.getenv("GLASS_PASSWORD") 
 
         if not username or not password:
@@ -754,6 +754,18 @@ def phase_graph_and_reset(page: Page, frame, results):
 
 def test_glass_template_phase_based(page: Page, context: BrowserContext):
     try:
+        # Record which template is being tested
+        template_path = os.getenv("TEMPLATE_FILE_PATH", "Unknown/Local")
+        record_result(
+            TEST_RESULTS,
+            phase="SETUP",
+            test_type="Template Info",
+            input_value="Environment Variable",
+            expected="Template Path",
+            actual=template_path,
+            status="INFO"
+        )
+
         frame = phase_login_and_iframe(page, context, TEST_RESULTS)
         phase_zip_resolution(page, frame, TEST_RESULTS)
         phase_date_validation(page, frame, TEST_RESULTS)
