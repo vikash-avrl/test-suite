@@ -268,7 +268,7 @@
         .rate-ratio {
             font-size: 9px;
             font-weight: 700;
-            padding: 2px 4px;
+            padding: 0px;
             border-radius: 3px;
             transition: all 0.3s ease;
         }
@@ -3394,7 +3394,7 @@
                             </div>
 
                             <div class="rate-item">
-                                <span class="rate-label">Ratio:</span>
+                                <span class="rate-label">Margin %:</span>
                                 <strong id="base-ratio" class="num rate-ratio">--</strong>
                             </div>
                         </div>
@@ -5981,7 +5981,7 @@
                 const options = field.options || [];
                 const optionElements = [];
                 options.forEach(function (opt) {
-                    const optValue = opt.value || opt;
+                    const optValue = (opt.value !== undefined && opt.value !== null) ? opt.value : opt;
                     const optLabel = opt.label || opt;
                     const optionDiv = document.createElement('div');
                     optionDiv.className = 'searchable-select-option';
@@ -6494,7 +6494,38 @@
                         };
                     }
 
-                
+                    // function parseDateField(inputElement) {
+                    //     let value = inputElement.value.trim();
+                    //     if (!value) return;
+                    //     value = stripTimezone(value);
+                    //     const parsed = parseCustomDateTime(value);
+                    //     console.log(parsed)
+                    //     if (!parsed) return handleInvalid(inputElement);
+                    //     const localDateTime =
+                    //         parsed.getFullYear() + "-" +
+                    //         String(parsed.getMonth() + 1).padStart(2, "0") + "-" +
+                    //         String(parsed.getDate()).padStart(2, "0") + "T" +
+                    //         String(parsed.getHours()).padStart(2, "0") + ":" +
+                    //         String(parsed.getMinutes()).padStart(2, "0") + ":" +
+                    //         String(parsed.getSeconds()).padStart(2, "0");
+                    //     inputElement.setAttribute("data-parsed-date", localDateTime);
+                    //     const monthStr = String(parsed.getMonth() + 1).padStart(2, "0");
+                    //     const dayStr = String(parsed.getDate()).padStart(2, "0");
+                    //     const yearStr = parsed.getFullYear();
+                    //     let displayHour = parsed.getHours();
+                    //     const displayMinute = String(parsed.getMinutes()).padStart(2, "0");
+                    //     const displayAMPM = displayHour >= 12 ? "PM" : "AM";
+                    //     displayHour = displayHour % 12 || 12;
+                    //     const displayHourStr = String(displayHour).padStart(2, "0");
+                    //     inputElement.value = `${monthStr}/${dayStr}/${yearStr} ${displayHourStr}:${displayMinute} ${displayAMPM}`;
+                    //     inputElement.style.borderColor = "#4CAF50";
+                    //     inputElement.style.color = "#000";
+                    //     const fieldDiv = inputElement.closest(".input-field");
+                    //     if (fieldDiv) fieldDiv.classList.add("has-value");
+                    //     setTimeout(() => (inputElement.style.borderColor = ""), 1000);
+                    //     showToast("✓ Date parsed successfully", 2000);
+                    // }
+
                     function parseDateField(inputElement) {
                         let value = inputElement.value.trim();
                         if (!value) return;
@@ -6789,7 +6820,9 @@
                     formData.accessorials = [];
                 }
                 console.log('transit_related_items:', formData.transit_related_items);
-                if (formData.transit_related_items === undefined || formData.transit_related_items === "") {
+                if (formData.transit_related_items === undefined || 
+                    formData.transit_related_items === "" || 
+                    formData.transit_related_items === null) {
                     formData.transit_related_items = [];
                 } else {
                     formData.transit_related_items = [formData.transit_related_items];
@@ -7014,8 +7047,9 @@
              * Calculate and display base ratio (how much higher bid_submitted is vs base_rate)
              * @param {number} bidSubmitted - The bid submitted amount
              * @param {number} baseRate - The base rate amount
+             * @param {number} pa_total - The total PA amount
              */
-            function updateBaseRatio(bidSubmitted, baseRate) {
+            function updateBaseRatio(bidSubmitted, baseRate,pa_total) {
                 const ratioElement = document.getElementById('base-ratio');
                 
                 if (!ratioElement) return;
@@ -7028,7 +7062,7 @@
                 }
                 
                 // Calculate percentage difference (how much higher/lower)
-                const percentDiff = ((bidSubmitted - baseRate) / baseRate) * 100;
+                const percentDiff = (pa_total / (baseRate + pa_total))* 100;
                 const percentDiffFormatted = percentDiff.toFixed(1);
                 const displayText = percentDiff >= 0 ? `+${percentDiffFormatted}%` : `${percentDiffFormatted}%`;
                 
@@ -7109,7 +7143,7 @@
                     }
                     
                     // Update base ratio (bid_submitted / base_rate)
-                    updateBaseRatio(recommendedRate, baseRate);
+                    updateBaseRatio(recommendedRate, baseRate,paData.totalPA );
                     if (respPkt['dat.rateview.high_all_in_rate']) {
                         document.getElementById('dat-high').textContent = '$' + respPkt['dat.rateview.high_all_in_rate'].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     }
@@ -7272,7 +7306,7 @@
                         document.getElementById('fuel-rate').textContent = '$' + additionalData.fuel_surcharge.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     }
                     // Update base ratio
-                    updateBaseRatio(bidSubmitted, additionalData.base_rate);
+                    updateBaseRatio(bidSubmitted, additionalData.base_rate,paData.totalPA );
                     document.getElementById('rate-info-icon').classList.add('hide');
                 }
             }
