@@ -220,8 +220,8 @@ def phase_login_and_iframe(page: Page, context: BrowserContext, results):
         login.wait_for_load_state("networkidle")
 
         # Get credentials from environment variables (GitHub Secrets)
-        username = os.getenv("GLASS_USERNAME")
-        password = os.getenv("GLASS_PASSWORD")
+        username = os.getenv("GLASS_USERNAME") 
+        password = os.getenv("GLASS_PASSWORD") 
 
         if not username or not password:
             pytest.fail("Missing required environment variables: GLASS_USERNAME, GLASS_PASSWORD")
@@ -523,6 +523,180 @@ def phase_fetch_positive(page: Page, frame, results):
         fail_phase("FETCH-POSITIVE", "No graph or bid-failure shown")
 
 # =========================================================
+# PHASE 5.5: SLIDER INTERACTION
+# =========================================================
+
+SIMULATE_SLIDER_DRAG_JS = """
+function simulateSliderDrag(slider, fromValue, toValue, steps = 10) {
+  const min = Number(slider.min);
+  const max = Number(slider.max);
+  const rect = slider.getBoundingClientRect();
+  const valueToX = (value) =>
+    rect.left + ((value - min) / (max - min)) * rect.width;
+  const y = rect.top + rect.height / 2;
+  const fire = (event) => slider.dispatchEvent(event);
+  const startX = valueToX(fromValue);
+  const endX   = valueToX(toValue);
+
+  // pointer over / enter
+  fire(new PointerEvent("pointerover", { bubbles: true, clientX: startX, clientY: y, pointerId: 1 }));
+  fire(new PointerEvent("pointerenter", { bubbles: true, clientX: startX, clientY: y, pointerId: 1 }));
+  fire(new MouseEvent("mouseover", { bubbles: true, clientX: startX, clientY: y }));
+
+  // pointer down
+  fire(new PointerEvent("pointerdown", {
+    bubbles: true,
+    clientX: startX,
+    clientY: y,
+    pointerId: 1,
+    pressure: 0.5,
+    buttons: 1
+  }));
+
+  fire(new MouseEvent("mousedown", {
+    bubbles: true,
+    clientX: startX,
+    clientY: y,
+    buttons: 1
+  }));
+
+  slider.focus();
+  if (slider.setPointerCapture) slider.setPointerCapture(1);
+
+  for (let i = 0; i <= steps; i++) {
+    const progress = i / steps;
+    const value = fromValue + (toValue - fromValue) * progress;
+    const x = valueToX(value);
+
+    slider.value = value;
+
+    fire(new PointerEvent("pointermove", {
+      bubbles: true,
+      clientX: x,
+      clientY: y,
+      pointerId: 1,
+      pressure: 0.5,
+      buttons: 1
+    }));
+
+    fire(new MouseEvent("mousemove", {
+      bubbles: true,
+      clientX: x,
+      clientY: y,
+      buttons: 1
+    }));
+
+    fire(new Event("input", { bubbles: true }));
+  }
+
+  fire(new PointerEvent("pointerup", {
+    bubbles: true,
+    clientX: endX,
+    clientY: y,
+    pointerId: 1
+  }));
+
+  fire(new MouseEvent("mouseup", {
+    bubbles: true,
+    clientX: endX,
+    clientY: y
+  }));
+
+  fire(new Event("change", { bubbles: true }));
+
+  if (slider.releasePointerCapture) slider.releasePointerCapture(1);
+}
+"""
+
+
+def phase_slider_interaction(page: Page, frame, results):
+    try:
+        # Helper to parse value from the standardized pill
+        def get_pill_value():
+            el = frame.locator("#bid-sub-marker-pill").first
+            if el.count() == 0:
+                return None
+            
+            raw = el.get_attribute("title")
+            if not raw:
+                raw = el.text_content()
+            
+            if not raw:
+                return 0.0
+            
+            cleaned = raw.replace('Bid Sub:', '').replace('$', '').replace(',', '').strip()
+            try:
+                return float(cleaned)
+            except:
+                return 0.0
+
+        def run_slider_test(slider_id, slider_name):
+            # Check if slider exists
+            if frame.locator(slider_id).count() == 0:
+                record_result(
+                    results, slider_name, "Slider Presence",
+                    "Check existence",
+                    "Slider found",
+                    "Slider not found",
+                    "FAILED"
+                )
+                return
+
+            initial_val = get_pill_value()
+            
+            # Run JS drag
+            slider = frame.locator(slider_id)
+            slider.evaluate(f"""(element) => {{
+                {SIMULATE_SLIDER_DRAG_JS}
+                simulateSliderDrag(element, 0, 15);
+            }}""")
+            
+            wait_for_settle(page, 2)
+            
+            final_val = get_pill_value()
+
+            if initial_val is not None and final_val is not None and initial_val != final_val:
+                 record_result(
+                    results, slider_name, "Slider Interaction",
+                    "Drag 0->15",
+                    "Value changes",
+                    f"Changed from {initial_val} to {final_val}",
+                    "PASSED"
+                )
+            else:
+                 record_result(
+                    results, slider_name, "Slider Interaction",
+                    "Drag 0->15",
+                    "Value changes",
+                    f"No change ({initial_val} -> {final_val})",
+                    "FAILED"
+                )
+                 # We don't fail the whole phase immediately to allow other sliders to run, 
+                 # or we can if strictly sequential. Let's record failure but continue.
+            
+            # Click resetSliders if available
+            if frame.locator("#resetSliders").count() > 0:
+                frame.locator("#resetSliders").click()
+                wait_for_settle(page, 2)
+            else:
+                print(f"Warning: #resetSliders not found after testing {slider_name}")
+
+        # Run for all 3 sliders
+        run_slider_test("#baseSlider", "Base Slider")
+        run_slider_test("#bidSlider", "Bid Slider")
+        run_slider_test("#marginSlider", "Margin Slider")
+
+    except Exception as e:
+        record_result(
+            results, "SLIDER_PHASE", "Slider Phase",
+            "Execution",
+            "No errors",
+            str(e),
+            "FAILED"
+        )
+        fail_phase("SLIDER_PHASE", str(e))
+
+# =========================================================
 # PHASE 6: GRAPH ZOOM + RESET
 # =========================================================
 
@@ -585,6 +759,7 @@ def test_glass_template_phase_based(page: Page, context: BrowserContext):
         phase_dates_and_normalization(page, frame, TEST_RESULTS)
         phase_fetch_negative(page, frame, TEST_RESULTS)
         phase_fetch_positive(page, frame, TEST_RESULTS)
+        phase_slider_interaction(page, frame, TEST_RESULTS)
         phase_graph_and_reset(page, frame, TEST_RESULTS)
 
     except Exception as e:
