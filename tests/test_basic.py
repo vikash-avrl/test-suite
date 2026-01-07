@@ -433,6 +433,7 @@ def phase_date_validation(page: Page, frame, results):
 
         has_error = frame.locator(".field-error").count() > 0
 
+        parsed_val = field.input_value() # Capture what the input became
         if has_error:
             record_result(
                 results,
@@ -450,7 +451,7 @@ def phase_date_validation(page: Page, frame, results):
                 phase="DATE",
                 test_type="Valid Date Format",
                 input_value=val,
-                expected="Accepted (no field-error)",
+                expected=f"Parsed: {parsed_val}",
                 actual="Accepted",
                 status="PASSED"
             )
