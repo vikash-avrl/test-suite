@@ -1,9 +1,3 @@
-"""
-Glass Chrome Extension – Phase-based E2E Smoke Test
-Preserves sleeps + networkidle
-Stops execution immediately on phase failure
-"""
-
 import pytest
 from playwright.sync_api import Page, BrowserContext, TimeoutError
 import time
@@ -225,12 +219,15 @@ def phase_login_and_iframe(page: Page, context: BrowserContext, results):
         login = p.value
         login.wait_for_load_state("networkidle")
 
-        login.locator("xpath=/html/body/div[1]/form/input[1]").fill(
-            "avrl-internal/vikash@avrl.io"
-        )
-        login.locator("xpath=/html/body/div[1]/form/input[2]").fill(
-            "nrgHlIySThRRdd1IxdStD0vV0jk"
-        )
+        # Get credentials from environment variables (GitHub Secrets)
+        username = os.getenv("GLASS_USERNAME")
+        password = os.getenv("GLASS_PASSWORD")
+
+        if not username or not password:
+            pytest.fail("Missing required environment variables: GLASS_USERNAME, GLASS_PASSWORD")
+
+        login.locator("xpath=/html/body/div[1]/form/input[1]").fill(username)
+        login.locator("xpath=/html/body/div[1]/form/input[2]").fill(password)
 
         with login.expect_navigation():
             login.locator("xpath=/html/body/div[1]/form/button").click()
