@@ -31,7 +31,7 @@ jobs:
           pip install -r requirements.txt
 
       # --------------------------
-      # Playwright
+      # Playwright setup
       # --------------------------
       - name: Install Playwright browsers
         run: |
@@ -39,7 +39,7 @@ jobs:
           playwright install-deps chromium
 
       # --------------------------
-      # Test results dirs
+      # Test results directories
       # --------------------------
       - name: Create test results directories
         run: |
@@ -47,7 +47,7 @@ jobs:
           mkdir -p test-results/traces
 
       # --------------------------
-      # GCP Auth
+      # Authenticate to GCP
       # --------------------------
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -69,17 +69,18 @@ jobs:
 
           GLASS_CE_VERSION=$(cat glass_ce_version.txt | tr -d ' \n')
           echo "GLASS_CE_VERSION=$GLASS_CE_VERSION" >> $GITHUB_ENV
+
           echo "Using extension version: $GLASS_CE_VERSION"
 
       # --------------------------
-      # Download extension from GCS
+      # Download extension ZIP from glass_ce bucket
       # --------------------------
       - name: Download Chrome Extension from GCS
         run: |
           ZIP_NAME="glass_ce_${GLASS_CE_VERSION}.zip"
 
-          echo "Downloading $ZIP_NAME from GCS"
-          gsutil cp "gs://avrl-glass/$ZIP_NAME" extension.zip
+          echo "Downloading $ZIP_NAME from gs://glass_ce/"
+          gsutil cp "gs://glass_ce/$ZIP_NAME" extension.zip
 
           unzip extension.zip -d chrome-extension
 
@@ -89,7 +90,7 @@ jobs:
           fi
 
       # --------------------------
-      # Resolve latest template
+      # Resolve latest template file
       # --------------------------
       - name: Resolve latest template file
         run: |
@@ -106,7 +107,7 @@ jobs:
           echo "Using template: $LATEST_TEMPLATE"
 
       # --------------------------
-      # Run tests
+      # Run Playwright tests
       # --------------------------
       - name: Run tests
         env:
@@ -114,12 +115,11 @@ jobs:
           GLASS_USERNAME: ${{ secrets.GLASS_USERNAME }}
           GLASS_PASSWORD: ${{ secrets.GLASS_PASSWORD }}
         run: |
-          echo "Running tests"
-          echo "Extension version: $GLASS_CE_VERSION"
+          echo "Running tests with extension version: $GLASS_CE_VERSION"
           pytest
 
       # --------------------------
-      # ✅ Upload template DIRECTLY to bucket root (override)
+      # ✅ Upload template to avrl-glass bucket (ROOT, overwrite)
       # --------------------------
       - name: Upload HTML template to GCS
         if: success()
@@ -130,7 +130,7 @@ jobs:
           gsutil cp "$TEMPLATE_FILE_PATH" "gs://avrl-glass/$FILE_NAME"
 
       # --------------------------
-      # Upload test artifacts
+      # Upload test results artifacts
       # --------------------------
       - name: Upload Test Results Artifacts
         if: always()

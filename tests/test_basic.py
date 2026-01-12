@@ -641,6 +641,17 @@ def test_glass_template_phase_based(page: Page, context: BrowserContext):
     try:
         # Record which template is being tested
         template_path = os.getenv("TEMPLATE_FILE_PATH", "Unknown/Local")
+        extension_version = os.getenv("GLASS_CE_VERSION", "Unknown")
+        record_result(
+            TEST_RESULTS,
+            phase="SETUP",
+            test_type="Extension Info",
+            input_value="Environment Variable",
+            expected="Extension Version",
+            actual=extension_version,
+            status="INFO"
+        )
+
         record_result(
             TEST_RESULTS,
             phase="SETUP",
