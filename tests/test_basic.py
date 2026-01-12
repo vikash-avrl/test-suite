@@ -336,6 +336,10 @@ def phase_fetch_negative(page: Page, frame, results):
 # PHASE 5: FETCH – POSITIVE
 # =========================================================
 def phase_date_validation(page: Page, frame, results):
+    now = datetime.now()
+    today_str = now.strftime("%m/%d/%Y")
+    year_str = now.strftime("%Y")
+
     field = frame.locator("#pickup_date")
 
     for val, expected_val in dates.items():
@@ -361,13 +365,22 @@ def phase_date_validation(page: Page, frame, results):
                     val, "Rejected (field-error)", "Rejected", "PASSED"
                 )
         else:
+            # EXPECT ACCEPTANCE + CORRECT PARSING
+            
+            # Dynamic adjustment for current date/year if input was partial
+            # Our JSON uses 01/07/2026 as the 'today' anchor and 2026 as 'current year'
+            
+            # 1) Replace full anchor date first
+            adjusted_expected = expected_val.replace("01/07/2026", today_str)
+            # 2) Then replace remaining year markers
+            adjusted_expected = adjusted_expected.replace("2026", year_str)
 
-            if actual_val != expected_val:
+            if actual_val != adjusted_expected:
                 record_result(
                     results, "DATE", "Date Parsing Accuracy",
-                    val, expected_val, actual_val, "FAILED"
+                    val, adjusted_expected, actual_val, "FAILED"
                 )
-                fail_phase("DATE", f"Date parsed incorrectly: {val} -> {actual_val} (Expected: {expected_val})")
+                fail_phase("DATE", f"Date parsed incorrectly: {val} -> {actual_val} (Expected: {adjusted_expected})")
             else:
                 record_result(
                     results, "DATE", "Valid Date Format",
@@ -375,9 +388,10 @@ def phase_date_validation(page: Page, frame, results):
                 )
 
     # Restore valid state for next phases
-    field.fill("12/15/2026 08:30 PM")
-    frame.locator("#drop_date").fill("12/15/2026 08:30 PM")
+    field.fill(f"12/15/{year_str} 08:30 PM")
+    frame.locator("#drop_date").fill(f"12/15/{year_str} 08:30 PM")
     time.sleep(1)
+
 
 def phase_fetch_positive(page: Page, frame, results):
     frame.locator("#distance").fill("799.41")
