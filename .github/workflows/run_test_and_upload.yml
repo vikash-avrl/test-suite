@@ -150,18 +150,67 @@ jobs:
       # --------------------------
       - name: Send Teams Notification
         if: always()
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
         run: |
-          STATUS="FAILED"
-          [ "${{ job.status }}" = "success" ] && STATUS="PASSED"
+          if [ -z "$TEAMS_WEBHOOK_URL" ]; then
+            echo "TEAMS_WEBHOOK_URL secret not set"
+            exit 1
+          fi
+
+          if [ "${{ job.status }}" = "success" ]; then
+            STATUS_EMOJI="✅"
+            STATUS_TEXT="PASSED"
+          else
+            STATUS_EMOJI="❌"
+            STATUS_TEXT="FAILED"
+          fi
 
           ARTIFACT_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
           cat <<EOF > payload.json
           {
-            "text": "Chrome Extension Tests: $STATUS\nVersion: $GLASS_CE_VERSION\nRun: $ARTIFACT_URL"
+            "type": "message",
+            "attachments": [
+              {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                  "\$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                  "type": "AdaptiveCard",
+                  "version": "1.2",
+                  "body": [
+                    {
+                      "type": "TextBlock",
+                      "text": "Chrome Extension Test Results",
+                      "weight": "Bolder",
+                      "size": "Medium"
+                    },
+                    {
+                      "type": "FactSet",
+                      "facts": [
+                        { "title": "Status", "value": "$STATUS_EMOJI $STATUS_TEXT" },
+                        { "title": "Extension Version", "value": "$GLASS_CE_VERSION" },
+                        { "title": "Branch", "value": "${{ github.ref_name }}" },
+                        { "title": "Commit", "value": "${{ github.sha }}" }
+                      ]
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "[View Workflow Run]($ARTIFACT_URL)",
+                      "wrap": true
+                    }
+                  ]
+                }
+              }
+            ]
           }
           EOF
 
-          curl -H "Content-Type: application/json" \
-               -d @payload.json \
-               "https://defaultd469d4ef82584600bbdabe4732e973.e2.environment.api.powerplatform.com/..."
+          echo "Sending Teams notification..."
+          curl -f -X POST \
+            -H "Content-Type: application/json" \
+            -d @payload.json \
+            "$TEAMS_WEBHOOK_URL"
+
+          echo "Teams notification sent successfully"
+
