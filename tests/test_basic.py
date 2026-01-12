@@ -244,7 +244,7 @@ def phase_zip_resolution(page: Page, frame, results):
         fail_phase("ZIP", str(e))
 
 # =========================================================
-# PHASE 3: DATES + NORMALIZATION
+# PHASE 3:  NORMALIZATION
 # =========================================================
 
 def phase_dates_and_normalization(page: Page, frame, results):
@@ -361,8 +361,7 @@ def phase_date_validation(page: Page, frame, results):
                     val, "Rejected (field-error)", "Rejected", "PASSED"
                 )
         else:
-            # EXPECT ACCEPTANCE + CORRECT PARSING
-            # The USER requested: "for valid just compare expected"
+
             if actual_val != expected_val:
                 record_result(
                     results, "DATE", "Date Parsing Accuracy",

@@ -1,0 +1,167 @@
+name: Chrome Extension Tests
+
+on:
+  push:
+    branches: ["master"]
+
+jobs:
+  test:
+    name: Run Playwright Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # --------------------------
+      # Checkout
+      # --------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --------------------------
+      # Python setup
+      # --------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # --------------------------
+      # Playwright
+      # --------------------------
+      - name: Install Playwright browsers
+        run: |
+          playwright install chromium
+          playwright install-deps chromium
+
+      # --------------------------
+      # Test results dirs
+      # --------------------------
+      - name: Create test results directories
+        run: |
+          mkdir -p test-results/screenshots
+          mkdir -p test-results/traces
+
+      # --------------------------
+      # GCP Auth
+      # --------------------------
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # --------------------------
+      # Read extension version → ENV
+      # --------------------------
+      - name: Read Chrome Extension version
+        run: |
+          if [ ! -f glass_ce_version.txt ]; then
+            echo "glass_ce_version.txt not found"
+            exit 1
+          fi
+
+          GLASS_CE_VERSION=$(cat glass_ce_version.txt | tr -d ' \n')
+          echo "GLASS_CE_VERSION=$GLASS_CE_VERSION" >> $GITHUB_ENV
+          echo "Using extension version: $GLASS_CE_VERSION"
+
+      # --------------------------
+      # Download extension from GCS
+      # --------------------------
+      - name: Download Chrome Extension from GCS
+        run: |
+          ZIP_NAME="glass_ce_${GLASS_CE_VERSION}.zip"
+
+          echo "Downloading $ZIP_NAME from GCS"
+          gsutil cp "gs://avrl-glass/$ZIP_NAME" extension.zip
+
+          unzip extension.zip -d chrome-extension
+
+          if [ ! -f chrome-extension/manifest.json ]; then
+            echo "ERROR: manifest.json not found"
+            exit 1
+          fi
+
+      # --------------------------
+      # Resolve latest template
+      # --------------------------
+      - name: Resolve latest template file
+        run: |
+          LATEST_TEMPLATE=$(ls template*.html 2>/dev/null | sort -V | tail -n 1)
+
+          if [ -z "$LATEST_TEMPLATE" ]; then
+            echo "No template file found"
+            exit 1
+          fi
+
+          FULL_PATH="${{ github.workspace }}/$LATEST_TEMPLATE"
+          echo "TEMPLATE_FILE_PATH=$FULL_PATH" >> $GITHUB_ENV
+
+          echo "Using template: $LATEST_TEMPLATE"
+
+      # --------------------------
+      # Run tests
+      # --------------------------
+      - name: Run tests
+        env:
+          EXTENSION_PATH: ${{ github.workspace }}/chrome-extension
+          GLASS_USERNAME: ${{ secrets.GLASS_USERNAME }}
+          GLASS_PASSWORD: ${{ secrets.GLASS_PASSWORD }}
+        run: |
+          echo "Running tests"
+          echo "Extension version: $GLASS_CE_VERSION"
+          pytest
+
+      # --------------------------
+      # ✅ Upload template DIRECTLY to bucket root (override)
+      # --------------------------
+      - name: Upload HTML template to GCS
+        if: success()
+        run: |
+          FILE_NAME=$(basename "$TEMPLATE_FILE_PATH")
+
+          echo "Uploading $FILE_NAME to gs://avrl-glass/"
+          gsutil cp "$TEMPLATE_FILE_PATH" "gs://avrl-glass/$FILE_NAME"
+
+      # --------------------------
+      # Upload test artifacts
+      # --------------------------
+      - name: Upload Test Results Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: |
+            test-results/screenshots/
+            test-results/*.json
+            test-results/report.html
+            test-results/traces/
+          retention-days: 30
+          if-no-files-found: warn
+
+      # --------------------------
+      # Teams notification
+      # --------------------------
+      - name: Send Teams Notification
+        if: always()
+        run: |
+          STATUS="FAILED"
+          [ "${{ job.status }}" = "success" ] && STATUS="PASSED"
+
+          ARTIFACT_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+          cat <<EOF > payload.json
+          {
+            "text": "Chrome Extension Tests: $STATUS\nVersion: $GLASS_CE_VERSION\nRun: $ARTIFACT_URL"
+          }
+          EOF
+
+          curl -H "Content-Type: application/json" \
+               -d @payload.json \
+               "https://defaultd469d4ef82584600bbdabe4732e973.e2.environment.api.powerplatform.com/..."
